@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YS Chat - YS Teknoloji</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif}
+body{background:#0a0a0a;color:#fff;height:100vh;display:flex;flex-direction:column}
+header{background:#1a1a1a;padding:15px 20px;border-bottom:1px solid #333;display:flex;justify-content:space-between;align-items:center}
+header h1{font-size:18px;color:#00ff88}
+header span{font-size:12px;color:#888}
+#chat{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:15px}
+.msg{max-width:75%;padding:12px 16px;border-radius:12px;line-height:1.5;white-space:pre-wrap}
+.user{background:#00ff88;color:#000;align-self:flex-end}
+.ai{background:#1a1a1a;border:1px solid #333;align-self:flex-start}
+#input-area{display:flex;padding:15px;background:#1a1a1a;border-top:1px solid #333;gap:10px}
+#msg-input{flex:1;padding:12px;background:#0a0a0a;border:1px solid #333;border-radius:8px;color:#fff;outline:none}
+#send-btn{background:#00ff88;color:#000;border:none;padding:12px 20px;border-radius:8px;cursor:pointer;font-weight:600}
+#key-modal{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.9);display:flex;justify-content:center;align-items:center;z-index:100}
+.modal-box{background:#1a1a1a;padding:30px;border-radius:12px;width:90%;max-width:400px;border:1px solid #333}
+.modal-box h2{margin-bottom:10px;color:#00ff88}
+.modal-box p{color:#888;font-size:14px;margin-bottom:15px}
+.modal-box input{width:100%;padding:12px;background:#0a0a0a;border:1px solid #333;border-radius:8px;color:#fff;margin-bottom:15px}
+.modal-box button{width:100%;padding:12px;background:#00ff88;color:#000;border:none;border-radius:8px;font-weight:600;cursor:pointer}
+.small{font-size:12px;color:#666;margin-top:10px}
+</style>
+</head>
+<body>
+
+<div id="key-modal">
+  <div class="modal-box">
+    <h2>YS Chat</h2>
+    <p>Başlamak için Groq API keyini gir. Key sadece senin tarayıcında saklanır.</p>
+    <input type="password" id="api-key" placeholder="gsk_xxxxxxxxxxxxx">
+    <button onclick="saveKey()">Başlat</button>
+    <p class="small">Yapımcı: Yusuf Kanmaz | Şirket: YS Teknoloji</p>
+    <p class="small">Key almak için: console.groq.com</p>
+  </div>
+</div>
+
+<header>
+  <h1>YS Chat</h1>
+  <span>YS Teknoloji</span>
+</header>
+
+<div id="chat"></div>
+
+<div id="input-area">
+  <input type="text" id="msg-input" placeholder="Mesajını yaz..." onkeypress="if(event.key==='Enter') sendMsg()">
+  <button id="send-btn" onclick="sendMsg()">Gönder</button>
+</div>
+
+<script>
+let apiKey = localStorage.getItem('groq_key');
+let messages = [{role: "system", content: "Sen YS Teknoloji tarafından yapılan yardımcı bir yapay zekasın. Yapımcın Yusuf Kanmaz."}];
+
+if(apiKey){
+  document.getElementById('key-modal').style.display='none';
+}
+
+function saveKey(){
+  apiKey = document.getElementById('api-key').value.trim();
+  if(!apiKey.startsWith('gsk_')){
+    alert('Geçersiz Groq key. gsk_ ile başlamalı.');
+    return;
+  }
+  localStorage.setItem('groq_key', apiKey);
+  document.getElementById('key-modal').style.display='none';
+  addMsg('ai', 'Selam! Ben YS Chat. Sana nasıl yardımcı olabilirim?');
+}
+
+function addMsg(role, text){
+  const chat = document.getElementById('chat');
+  const div = document.createElement('div');
+  div.className = 'msg ' + (role==='user'?'user':'ai');
+  div.textContent = text;
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+async function sendMsg(){
+  const input = document.getElementById('msg-input');
+  const text = input.value.trim();
+  if(!text ||!apiKey) return;
+
+  addMsg('user', text);
+  messages.push({role:'user', content:text});
+  input.value='';
+
+  try{
+    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method:'POST',
+      headers:{
+        'Authorization':'Bearer '+apiKey,
+        'Content-Type':'application/json'
+      },
+      body:JSON.stringify({
+        model:'llama-3.1-8b-instant',
+        messages:messages,
+        temperature:0.7
+      })
+    });
+
+    const data = await res.json();
+    if(data.error){
+      addMsg('ai', 'Hata: '+data.error.message);
+      return;
+    }
+
+    const reply = data.choices[0].message.content;
+    addMsg('ai', reply);
+    messages.push({role:'assistant', content:reply});
+
+  }catch(e){
+    addMsg('ai', 'Bağlantı hatası: '+e.message);
+  }
+}
+</script>
+</body>
+</html>
